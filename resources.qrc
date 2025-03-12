@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/icon">
+        <file>simplescreenrecorder.svg</file>
+        <file>green-recorder.svg</file>
+        <file>record.svg</file>
+        <file>stop-fill.svg</file>
+    </qresource>
+</RCC>
