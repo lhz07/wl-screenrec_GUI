@@ -1,0 +1,3 @@
+[submodule "slurp"]
+	path = slurp
+	url = git@github.com:lhz07/slurp.git
