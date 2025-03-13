@@ -55,7 +55,6 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         ${PROJECT_C_SOURCES}
         resources.qrc
         reactcmd.h reactcmd.cpp
-        slurp/main.c
     )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET wl-screenrec_GUI APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
