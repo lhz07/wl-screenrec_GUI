@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 
 #include <QApplication>
+#include <QGuiApplication>
 #include <QSystemSemaphore>
 
 int main(int argc, char *argv[])
@@ -34,8 +35,8 @@ int main(int argc, char *argv[])
             if (*local_data == Shortcuts::RUNNING){
                 if (cmd == "record"){
                     *local_data = Shortcuts::RECORD;
-                }else if (cmd == "stop"){
-                    *local_data = Shortcuts::STOP;
+                } else if (cmd == "select") {
+                    *local_data = Shortcuts::SELECT;
                 }
                 memcpy(share_data, local_data, sizeof(Shortcuts));
                 sema.release(1);

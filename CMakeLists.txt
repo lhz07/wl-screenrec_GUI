@@ -12,7 +12,7 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Multimedia)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(CAIRO REQUIRED cairo)
 pkg_check_modules(WAYLAND_CLIENT REQUIRED wayland-client)
@@ -22,10 +22,10 @@ pkg_check_modules(XKBCOMMON REQUIRED xkbcommon)
 set(RT_LIB rt)
 
 set(PROJECT_SOURCES
-        main.cpp
-        mainwindow.cpp
-        mainwindow.h
-        mainwindow.ui
+    main.cpp
+    mainwindow.cpp
+    mainwindow.h
+    mainwindow.ui
 )
 set(PROJECT_C_SOURCES
     slurp/xdg-shell-protocol.c
@@ -46,7 +46,8 @@ set(PROJECT_C_SOURCES
     slurp/include/cursor-shape-v1-client-protocol.h
 )
 include_directories(
-  ${CMAKE_CURRENT_SOURCE_DIR}/slurp/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/slurp/include
+
 )
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(wl-screenrec_GUI
@@ -55,6 +56,8 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         ${PROJECT_C_SOURCES}
         resources.qrc
         reactcmd.h reactcmd.cpp
+        slurp/slurp_tool.c
+        showframe.h showframe.cpp
     )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET wl-screenrec_GUI APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
@@ -65,28 +68,28 @@ else()
         add_library(wl-screenrec_GUI SHARED
             ${PROJECT_SOURCES}
         )
-# Define properties for Android with Qt 5 after find_package() calls as:
-#    set(ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android")
-    else()
-        add_executable(wl-screenrec_GUI
-            ${PROJECT_SOURCES}
-        )
-    endif()
+    # Define properties for Android with Qt 5 after find_package() calls as:
+    #    set(ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android")
+else()
+    add_executable(wl-screenrec_GUI
+        ${PROJECT_SOURCES}
+    )
+endif()
 endif()
 
-target_link_libraries(wl-screenrec_GUI PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+target_link_libraries(wl-screenrec_GUI PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt6::Multimedia)
 target_link_libraries(wl-screenrec_GUI PRIVATE
-  ${CAIRO_LIBRARIES}
-  ${WAYLAND_CLIENT_LIBRARIES}
-  ${WAYLAND_CURSOR_LIBRARIES}
-  ${XKBCOMMON_LIBRARIES}
-  ${RT_LIB}
+    ${CAIRO_LIBRARIES}
+    ${WAYLAND_CLIENT_LIBRARIES}
+    ${WAYLAND_CURSOR_LIBRARIES}
+    ${XKBCOMMON_LIBRARIES}
+    ${RT_LIB}
 )
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an
 # explicit, fixed bundle identifier manually though.
 if(${QT_VERSION} VERSION_LESS 6.1.0)
-  set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.wl-screenrec_GUI)
+    set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.wl-screenrec_GUI)
 endif()
 set_target_properties(wl-screenrec_GUI PROPERTIES
     ${BUNDLE_ID_OPTION}

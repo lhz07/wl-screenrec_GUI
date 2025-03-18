@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>496</width>
-    <height>630</height>
+    <width>531</width>
+    <height>720</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -289,7 +289,24 @@
               </property>
              </widget>
             </item>
+            <item>
+             <widget class="QPushButton" name="pushButton_open_path">
+              <property name="text">
+               <string>Open</string>
+              </property>
+             </widget>
+            </item>
            </layout>
+          </item>
+          <item>
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>Audio Device</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QComboBox" name="comboBox_audio_device"/>
           </item>
           <item>
            <widget class="QLabel" name="label_3">
@@ -337,6 +354,16 @@
             </property>
             <property name="checkable">
              <bool>true</bool>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="checkBox_variable_frame">
+            <property name="text">
+             <string>Use variable framerate (improve performance but low compatibility)</string>
             </property>
             <property name="checked">
              <bool>true</bool>
@@ -408,8 +435,13 @@
       </widget>
       <widget class="QWidget" name="tab_2">
        <attribute name="title">
-        <string>Tab 2</string>
+        <string>About</string>
        </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_2">
+        <item>
+         <widget class="QTextBrowser" name="textBrowser_about"/>
+        </item>
+       </layout>
       </widget>
      </widget>
     </item>
@@ -420,7 +452,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>496</width>
+     <width>531</width>
      <height>22</height>
     </rect>
    </property>

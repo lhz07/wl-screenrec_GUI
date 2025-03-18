@@ -1,16 +1,17 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include <QMainWindow>
-#include <QProcess>
-#include <QSystemTrayIcon>
-#include <QIcon>
-#include <QTimer>
 #include <QElapsedTimer>
 #include <QEventLoop>
-#include <QSharedMemory>
+#include <QIcon>
+#include <QMainWindow>
+#include <QProcess>
 #include <QSettings>
+#include <QSharedMemory>
+#include <QSystemTrayIcon>
+#include <QTimer>
 #include "reactcmd.h"
+#include "showframe.h"
 #include "slurp_tool.h"
 
 QT_BEGIN_NAMESPACE
@@ -46,7 +47,7 @@ struct LScreen : public LSelection{
         , logical_geometry(logical_geo.x, logical_geo.y, logical_geo.width, logical_geo.height)
     {}
 };
-enum class Shortcuts {NONE, RUNNING, RECORD, STOP};
+enum class Shortcuts { NONE, RUNNING, RECORD, SELECT };
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -62,6 +63,8 @@ private slots:
     void pushButton_set_region_clicked();
 
     void pushButton_set_fullscreen_clicked();
+
+    void pushButton_open_path_clicked();
 
 private:
     Ui::MainWindow *ui;
@@ -96,6 +99,9 @@ private:
     void update_time_label();
     void about_to_quit();
     void get_all_outputs();
+    void get_audio_device();
+    // void createLoopback();
+    ShowFrame frame;
     QTimer killer;
     QTimer update_timer;
     QElapsedTimer recording_time;
@@ -108,17 +114,18 @@ private:
     const QPair<QString, QString> WEBM = {"WebM (.webm)", "webm"};
     const QPair<QString, QString> TS = {"MPEG-TS (.ts)", "ts"};
     const QPair<QString, QString> $3GP = {"3GP (.3gp)", "3gp"};
-    QMap<QString, QList<QPair<QString, QString>>> format_for_codec = {{"auto", {MP4, MKV, MOV, AVI, FLV, WEBM, TS}},
-                                                                      {"avc", {MP4, MKV, MOV, AVI, FLV, TS}},
-                                                                      {"hevc", {MP4, MKV, MOV, TS}},
-                                                                      {"vp8", {WEBM, MKV, AVI}},
-                                                                      {"vp9", {WEBM, MP4, MKV, AVI}},
-                                                                      {"av1", {WEBM, MP4, MKV, MOV, TS, AVI}}};
-    QList<QPair<QString, QString>> codecs = {{"Auto", "auto"},
-                                             {"AVC (H.264)", "avc"},
-                                             {"HEVC (H.265)", "hevc"},
-                                             {"VP8", "vp8"},
-                                             {"VP9", "vp9"},
-                                             {"AV1", "av1"}};
+    const QMap<QString, QList<QPair<QString, QString>>> format_for_codec
+        = {{"auto", {MP4, MKV, MOV, AVI, FLV, WEBM, TS}},
+           {"avc", {MP4, MKV, MOV, AVI, FLV, TS}},
+           {"hevc", {MP4, MKV, MOV, TS}},
+           {"vp8", {WEBM, MKV, AVI}},
+           {"vp9", {WEBM, MP4, MKV, AVI}},
+           {"av1", {WEBM, MP4, MKV, MOV, TS, AVI}}};
+    const QList<QPair<QString, QString>> codecs = {{"Auto", "auto"},
+                                                   {"AVC (H.264)", "avc"},
+                                                   {"HEVC (H.265)", "hevc"},
+                                                   {"VP8", "vp8"},
+                                                   {"VP9", "vp9"},
+                                                   {"AV1", "av1"}};
 };
 #endif // MAINWINDOW_H

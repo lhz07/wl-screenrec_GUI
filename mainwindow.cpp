@@ -1,6 +1,9 @@
 #include "mainwindow.h"
+#include <QAudioDevice>
+#include <QDesktopServices>
 #include <QDir>
 #include <QFileDialog>
+#include <QMediaDevices>
 #include <QMessageBox>
 #include <QScreen>
 #include <QSystemTrayIcon>
@@ -15,10 +18,13 @@ MainWindow::MainWindow(QSharedMemory *sharedMemory, QWidget *parent)
 {
     ui->setupUi(this);
     ui->groupBox_selected_region->hide();
+    // system("pw-loopback --capture-props='node.name=VirtualMic media.class=Audio/Source'");
     connect(react_cmd, &ReactCmd::memoryChanged, this, &MainWindow::receive_shortcut);
     sharedMemory->attach();
     react_cmd->start();
+    // this->create();
     // screen_list = QGuiApplication::screens();
+    get_audio_device();
     ui->comboBox_screens->addItem("Auto", "auto");
     ui->comboBox_screens->setCurrentIndex(0);
     get_all_outputs();
@@ -42,6 +48,10 @@ MainWindow::MainWindow(QSharedMemory *sharedMemory, QWidget *parent)
             &QPushButton::clicked,
             this,
             &MainWindow::pushButton_set_fullscreen_clicked);
+    connect(ui->pushButton_open_path,
+            &QPushButton::clicked,
+            this,
+            &MainWindow::pushButton_open_path_clicked);
     connect(&region_process, &QProcess::finished, this, &MainWindow::region_select_finished);
     connect(&killer, &QTimer::timeout, this, &MainWindow::process_time_out);
     record_process.setProgram("wl-screenrec");
@@ -79,7 +89,17 @@ MainWindow::MainWindow(QSharedMemory *sharedMemory, QWidget *parent)
     if (int index = ui->comboBox_format->findData(config.value("last_format", "mp4")); index != -1) {
         ui->comboBox_format->setCurrentIndex(index);
     }
-
+    if (int index = ui->comboBox_audio_device->findData(config.value("last_audio_device", "none"));
+        index != -1) {
+        ui->comboBox_audio_device->setCurrentIndex(index);
+    }
+    ui->textBrowser_about->setHtml("<h2>wl-screenrec_GUI</h2>"
+                                   "<p>Version 1.0.0</p>"
+                                   "<p>Github: <a href='https://github.com/lhz07/wl-screenrec_GUI'>"
+                                   "https://github.com/lhz07/wl-screenrec_GUI</a></p>"
+                                   "<p><i>Copyright © 2025 lhz. All Rights Reserved.</i></p>");
+    ui->textBrowser_about->setOpenExternalLinks(true);
+    // ui->textBrowser_about->setFixedHeight(100);
     createActionsAndTray();
 }
 
@@ -98,8 +118,10 @@ void MainWindow::receive_shortcut()
         if (*local_data == Shortcuts::RECORD) {
             // qDebug() << "start";
             prepare_to_record();
-        } else if (*local_data == Shortcuts::STOP) {
-            qDebug() << "stop";
+        } else if (*local_data == Shortcuts::SELECT) {
+            // qDebug() << "select";
+            ui->pushButton_set_region->setChecked(true);
+            pushButton_set_region_clicked();
         }
         *local_data = Shortcuts::RUNNING;
         sharedMemory->lock();
@@ -112,22 +134,23 @@ void MainWindow::record_finished(int exitCode)
 {
     update_record_button_text(false);
     update_timer.stop();
+    if (frame.isRunning()) {
+        frame.change_status("Ready to record");
+    }
     if (killer.isActive()) {
         killer.stop();
     }
     if (is_force_ended) {
         QString error = record_process.readAllStandardError();
-        QMessageBox::warning(this,
-                             "Warning",
-                             QString("wl-screenrec has been killed forcely, "
-                                     "please check the output and the command\n\n"
-                                     "Output: \n%1\n"
-                                     "Exit Code: %2\n\n"
-                                     "Command: \n%3 %4")
-                                 .arg(error,
-                                      QString::number(exitCode),
-                                      record_process.program(),
-                                      record_process.arguments().join(' ')));
+        QMessageBox::warning(
+            this,
+            "Warning",
+            QString("wl-screenrec has been killed forcely, please check the output and the "
+                    "command\n\nOutput: \n%1\nExit Code: %2\n\nCommand: \n%3 %4")
+                .arg(error,
+                     QString::number(exitCode),
+                     record_process.program(),
+                     record_process.arguments().join(' ')));
         is_force_ended = false;
     } else if (!is_expected_to_terminate) {
         if (exitCode) {
@@ -264,22 +287,33 @@ void MainWindow::record()
                                          QString::number(selected_region.geometry.height()));
         } else if (ui->comboBox_screens->currentData().toByteArray() != "auto") {
             QString output = ui->comboBox_screens->currentData().toString();
-            config.setValue("last_screen", output);
+
             record_arguments << "-o" << output;
         }
         if (ui->comboBox_GPUs->currentText() != "Auto") {
             QString GPU = ui->comboBox_GPUs->currentText();
-            config.setValue("last_GPU", GPU);
+
             record_arguments << "--dri-device" << GPU_path + GPU;
         }
         if (!ui->checkBox_use_GPU->isChecked()) {
-            config.setValue("use_GPU", ui->checkBox_use_GPU->isChecked());
             record_arguments << "--no-hw";
         }
         if (ui->comboBox_codec->currentData() != "auto") {
-            config.setValue("last_codec", ui->comboBox_codec->currentData());
             record_arguments << "--codec" << ui->comboBox_codec->currentData().toString();
         }
+        if (ui->comboBox_audio_device->currentData() != "none") {
+            record_arguments << "--audio" << "--audio-device"
+                             << ui->comboBox_audio_device->currentData().toString();
+        }
+        if (!ui->checkBox_variable_frame->isChecked()) {
+            record_arguments << "--no-damage";
+        }
+        config.setValue("last_screen", ui->comboBox_screens->currentData().toString());
+        config.setValue("last_GPU", ui->comboBox_GPUs->currentText());
+        config.setValue("use_GPU", ui->checkBox_use_GPU->isChecked());
+        config.setValue("last_codec", ui->comboBox_codec->currentData());
+        config.setValue("last_audio_device", ui->comboBox_audio_device->currentData());
+        config.setValue("use_variable_framerate", ui->checkBox_variable_frame->isChecked());
         config.setValue("last_format", ui->comboBox_format->currentData());
         config.setValue("storage_path", ui->lineEdit_path->text());
         record_arguments << "-f"
@@ -304,6 +338,9 @@ void MainWindow::record_started()
     recording_time.restart();
     update_timer.start(1000);
     update_record_button_text(true);
+    if (frame.isRunning()) {
+        frame.change_status("Recording");
+    }
 }
 
 void MainWindow::createActionsAndTray()
@@ -344,6 +381,10 @@ void MainWindow::about_to_quit()
         record();
         loop.exec();
     }
+    if (frame.isRunning()) {
+        frame.stop();
+        frame.wait();
+    }
 }
 
 void MainWindow::get_all_outputs()
@@ -371,6 +412,71 @@ void MainWindow::get_all_outputs()
         qDebug() << "geo:" << var.geometry;
     }
 }
+
+void MainWindow::get_audio_device()
+{
+    ui->comboBox_audio_device->clear();
+    ui->comboBox_audio_device->addItem("None", "none");
+    const auto audio_outputs = QMediaDevices::audioOutputs();
+    for (const auto &var : audio_outputs) {
+        ui->comboBox_audio_device->addItem(var.description(), var.id() + ".monitor");
+    }
+    const auto audio_inputs = QMediaDevices::audioInputs();
+    for (auto &&var : audio_inputs) {
+        ui->comboBox_audio_device->addItem(var.description(), var.id());
+    }
+}
+
+// void MainWindow::createLoopback()
+// {
+//     pw_init(nullptr, nullptr);
+//     struct pw_main_loop *loop = pw_main_loop_new(nullptr);
+//     struct pw_context *context = pw_context_new(pw_main_loop_get_loop(loop), nullptr, 0);
+//     struct pw_core *core = pw_context_connect(context, nullptr, 0);
+
+//     if (!core) {
+//         qDebug() << "无法连接到 PipeWire";
+//         return;
+//     }
+//     // 创建一个 Loopback 设备
+//     // 设定 Loopback 设备的属性
+//     struct pw_properties *props = pw_properties_new(PW_KEY_MEDIA_CLASS,
+//                                                     "Audio/Source",
+//                                                     PW_KEY_FACTORY_NAME,
+//                                                     "support.null-audio-sink",
+//                                                     PW_KEY_NODE_NAME,
+//                                                     "Loopback",
+//                                                     PW_KEY_NODE_DESCRIPTION,
+//                                                     "Loopback Audio Device",
+//                                                     nullptr);
+//     struct pw_properties *output_props = pw_properties_new(PW_KEY_MEDIA_CLASS,
+//                                                            "Stream/Output/Audio",
+//                                                            PW_KEY_FACTORY_NAME,
+//                                                            "support.null-audio-sink",
+//                                                            PW_KEY_NODE_NAME,
+//                                                            "Loopback_output",
+//                                                            PW_KEY_NODE_DESCRIPTION,
+//                                                            "Loopback_output Audio Device",
+//                                                            nullptr);
+//     pw_properties_set(output_props, PW_KEY_NODE_PASSIVE, "false");
+//     pw_properties_set(props, PW_KEY_NODE_PASSIVE, "false");
+//     struct pw_stream *stream = pw_stream_new(core, "Loopback", props);
+//     struct pw_stream *output_stream = pw_stream_new(core, "Loopback_output", output_props);
+
+//     if (!stream) {
+//         qDebug() << "创建 Loopback 设备失败";
+//         return;
+//     }
+//     if (pw_stream_connect(stream, PW_DIRECTION_OUTPUT, 233, PW_STREAM_FLAG_AUTOCONNECT, nullptr, 0)
+//         < 0) {
+//         qDebug() << "连接 PipeWire 失败";
+//         return;
+//     }
+//     pw_stream_connect(output_stream, PW_DIRECTION_INPUT, 233, PW_STREAM_FLAG_AUTOCONNECT, nullptr, 0);
+//     // pw_link()
+//     qDebug() << "成功创建 Loopback 设备";
+//     pw_main_loop_run(loop);
+// }
 
 void MainWindow::pushButton_set_region_clicked()
 {
@@ -444,7 +550,12 @@ void MainWindow::pushButton_set_region_clicked()
     ui->label_width->setText(QString::number(selected_region.geometry.width()));
     ui->label_height->setText(QString::number(selected_region.geometry.height()));
     ui->groupBox_selected_region->show();
-
+    if (frame.isRunning()) {
+        frame.stop();
+        frame.wait();
+    }
+    frame.set_geometry(selected_region.geometry);
+    frame.start();
     // for (auto&& var : output_list) {
     //     qDebug() << var.label;
     //     qDebug() << "logical_geo:" << var.logical_geometry;
@@ -460,4 +571,13 @@ void MainWindow::pushButton_set_fullscreen_clicked()
     ui->label_screens->show();
     ui->comboBox_screens->show();
     ui->groupBox_selected_region->hide();
+    if (frame.isRunning()) {
+        frame.stop();
+        frame.wait();
+    }
+}
+
+void MainWindow::pushButton_open_path_clicked()
+{
+    QDesktopServices::openUrl(QUrl::fromLocalFile(ui->lineEdit_path->text()));
 }
