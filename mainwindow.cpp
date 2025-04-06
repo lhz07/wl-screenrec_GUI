@@ -53,6 +53,10 @@ MainWindow::MainWindow(QSharedMemory *sharedMemory, QWidget *parent)
             this,
             &MainWindow::pushButton_open_path_clicked);
     connect(&region_process, &QProcess::finished, this, &MainWindow::region_select_finished);
+    connect(ui->checkBox_launch_silently,
+            &QCheckBox::clicked,
+            this,
+            &MainWindow::checkBox_launch_window_stateChanged);
     connect(&killer, &QTimer::timeout, this, &MainWindow::process_time_out);
     record_process.setProgram("wl-screenrec");
     ui->comboBox_GPUs->addItem("Auto");
@@ -93,14 +97,51 @@ MainWindow::MainWindow(QSharedMemory *sharedMemory, QWidget *parent)
         index != -1) {
         ui->comboBox_audio_device->setCurrentIndex(index);
     }
-    ui->textBrowser_about->setHtml("<h2>wl-screenrec_GUI</h2>"
-                                   "<p>Version 1.0.0</p>"
-                                   "<p>Github: <a href='https://github.com/lhz07/wl-screenrec_GUI'>"
-                                   "https://github.com/lhz07/wl-screenrec_GUI</a></p>"
-                                   "<p><i>Copyright © 2025 lhz. All Rights Reserved.</i></p>");
+    ui->checkBox_launch_silently->setChecked(config.value("launch_silently", false).toBool());
+    ui->textBrowser_about->setHtml(R"(
+        <h2>wl-screenrec_GUI</h2>
+        <p>Version 1.0.0</p>
+        <p>Record screen conveniently with wl-screenrec</p>
+        <p><i>Copyright © 2025  lhz</i></p>
+        <p>This program is free software: you can redistribute it and/or modify
+        it under the terms of the GNU General Public License as published by
+        the Free Software Foundation, either version 3 of the License, or
+        (at your option) any later version.</p>
+    
+        <p>This program is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+        GNU General Public License for more details.</p>
+    
+        <p>You should have received a copy of the GNU General Public License
+        along with this program.  If not, see <a href='https://www.gnu.org/licenses/'>https://www.gnu.org/licenses/</a>.</p>
+        <p>Github: <a href='https://github.com/lhz07/wl-screenrec_GUI'>
+        https://github.com/lhz07/wl-screenrec_GUI</a></p>
+        <p>If you encounter some problem, please check that whther it is a bug of wl-screenrec. 
+        If so, please 
+        report issue with the command directly to its repository.</p>
+        wl-screenrec: <a 
+        href='https://github.com/russelltg/wl-screenrec'>https://github.com/russelltg/
+        wl-screenrec</a></p>)");
     ui->textBrowser_about->setOpenExternalLinks(true);
+    ui->textBrowser_commands->setMarkdown(R"(
+### Record screen
+```sh
+wl-screenrec_GUI record  # start/stop record
+```
+
+
+### Select region
+```sh
+wl-screenrec_GUI select
+```
+)");
     // ui->textBrowser_about->setFixedHeight(100);
     createActionsAndTray();
+    connect(trayIcon, &QSystemTrayIcon::activated, this, &MainWindow::iconActivated);
+    if (!ui->checkBox_launch_silently->isChecked()) {
+        this->show();
+    }
 }
 
 MainWindow::~MainWindow()
@@ -273,6 +314,13 @@ void MainWindow::prepare_to_record()
 void MainWindow::record()
 {
     if (!is_recording) {
+        QDir dir_check(ui->lineEdit_path->text());
+        if (dir_check.exists() && dir_check.isReadable()) {
+            config.setValue("storage_path", ui->lineEdit_path->text());
+        } else {
+            QMessageBox::warning(this, "Warning", "Storage path is invalid!");
+            return;
+        }
         QStringList record_arguments;
         if (ui->pushButton_set_region->isChecked() && selected_region.is_Empty()) {
             QMessageBox::warning(this, "Warning", "Selected region is empty!");
@@ -315,16 +363,17 @@ void MainWindow::record()
         config.setValue("last_audio_device", ui->comboBox_audio_device->currentData());
         config.setValue("use_variable_framerate", ui->checkBox_variable_frame->isChecked());
         config.setValue("last_format", ui->comboBox_format->currentData());
-        config.setValue("storage_path", ui->lineEdit_path->text());
+
         record_arguments << "-f"
                          << QString("%1/wl-screenrec_%2.%3")
                                 .arg(ui->lineEdit_path->text(),
                                      QDateTime::currentDateTime().toString("yyyy-MM-dd_HH-mm-ss"),
                                      ui->comboBox_format->currentData().toString());
+        qDebug() << record_arguments;
         record_process.setArguments(record_arguments);
         record_process.start();
         ui->pushButton_record->setEnabled(false);
-        qDebug() << record_arguments;
+
     } else {
         record_process.terminate();
         is_expected_to_terminate = true;
@@ -426,57 +475,6 @@ void MainWindow::get_audio_device()
         ui->comboBox_audio_device->addItem(var.description(), var.id());
     }
 }
-
-// void MainWindow::createLoopback()
-// {
-//     pw_init(nullptr, nullptr);
-//     struct pw_main_loop *loop = pw_main_loop_new(nullptr);
-//     struct pw_context *context = pw_context_new(pw_main_loop_get_loop(loop), nullptr, 0);
-//     struct pw_core *core = pw_context_connect(context, nullptr, 0);
-
-//     if (!core) {
-//         qDebug() << "无法连接到 PipeWire";
-//         return;
-//     }
-//     // 创建一个 Loopback 设备
-//     // 设定 Loopback 设备的属性
-//     struct pw_properties *props = pw_properties_new(PW_KEY_MEDIA_CLASS,
-//                                                     "Audio/Source",
-//                                                     PW_KEY_FACTORY_NAME,
-//                                                     "support.null-audio-sink",
-//                                                     PW_KEY_NODE_NAME,
-//                                                     "Loopback",
-//                                                     PW_KEY_NODE_DESCRIPTION,
-//                                                     "Loopback Audio Device",
-//                                                     nullptr);
-//     struct pw_properties *output_props = pw_properties_new(PW_KEY_MEDIA_CLASS,
-//                                                            "Stream/Output/Audio",
-//                                                            PW_KEY_FACTORY_NAME,
-//                                                            "support.null-audio-sink",
-//                                                            PW_KEY_NODE_NAME,
-//                                                            "Loopback_output",
-//                                                            PW_KEY_NODE_DESCRIPTION,
-//                                                            "Loopback_output Audio Device",
-//                                                            nullptr);
-//     pw_properties_set(output_props, PW_KEY_NODE_PASSIVE, "false");
-//     pw_properties_set(props, PW_KEY_NODE_PASSIVE, "false");
-//     struct pw_stream *stream = pw_stream_new(core, "Loopback", props);
-//     struct pw_stream *output_stream = pw_stream_new(core, "Loopback_output", output_props);
-
-//     if (!stream) {
-//         qDebug() << "创建 Loopback 设备失败";
-//         return;
-//     }
-//     if (pw_stream_connect(stream, PW_DIRECTION_OUTPUT, 233, PW_STREAM_FLAG_AUTOCONNECT, nullptr, 0)
-//         < 0) {
-//         qDebug() << "连接 PipeWire 失败";
-//         return;
-//     }
-//     pw_stream_connect(output_stream, PW_DIRECTION_INPUT, 233, PW_STREAM_FLAG_AUTOCONNECT, nullptr, 0);
-//     // pw_link()
-//     qDebug() << "成功创建 Loopback 设备";
-//     pw_main_loop_run(loop);
-// }
 
 void MainWindow::pushButton_set_region_clicked()
 {
@@ -580,4 +578,18 @@ void MainWindow::pushButton_set_fullscreen_clicked()
 void MainWindow::pushButton_open_path_clicked()
 {
     QDesktopServices::openUrl(QUrl::fromLocalFile(ui->lineEdit_path->text()));
+}
+
+void MainWindow::iconActivated(QSystemTrayIcon::ActivationReason reason)
+{
+    if (reason == QSystemTrayIcon::Trigger) {
+        qDebug() << "clicked";
+        this->show();
+    }
+}
+
+void MainWindow::checkBox_launch_window_stateChanged(bool checked)
+{
+    // qDebug() << checked;
+    config.setValue("launch_silently", checked);
 }

@@ -66,6 +66,8 @@ private slots:
 
     void pushButton_open_path_clicked();
 
+    void checkBox_launch_window_stateChanged(bool checked);
+
 private:
     Ui::MainWindow *ui;
     // QList<QScreen*> screen_list;
@@ -100,6 +102,7 @@ private:
     void about_to_quit();
     void get_all_outputs();
     void get_audio_device();
+    void iconActivated(QSystemTrayIcon::ActivationReason reason);
     // void createLoopback();
     ShowFrame frame;
     QTimer killer;
